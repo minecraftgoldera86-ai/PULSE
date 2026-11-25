@@ -7,10 +7,10 @@ void main() {
   runApp(const PulseApp());
 }
 
-const Color bg = Color(0xFF111318);
-const Color panel = Color(0xFF191C24);
-const Color accent = Color(0xFF8B5CF6);
-const Color muted = Color(0xFF9298A8);
+const bg = Color(0xFF101218);
+const panel = Color(0xFF191D27);
+const accent = Color(0xFF8B5CF6);
+const muted = Color(0xFF9298A8);
 
 class PulseApp extends StatelessWidget {
   const PulseApp({super.key});
@@ -48,6 +48,24 @@ class PulseServer {
   final List<String> channels;
 
   PulseServer(this.name, this.icon, this.channels);
+}
+
+Widget pulseAvatar(String? path, String name, double radius) {
+  return CircleAvatar(
+    radius: radius,
+    backgroundColor: accent.withOpacity(0.25),
+    backgroundImage: path != null ? FileImage(File(path)) : null,
+    child: path == null
+        ? Text(
+            name.isNotEmpty ? name[0].toUpperCase() : '?',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: radius * 0.8,
+            ),
+          )
+        : null,
+  );
 }
 
 class HomePage extends StatefulWidget {
@@ -88,9 +106,9 @@ class _HomePageState extends State<HomePage> {
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         backgroundColor: panel,
-        title: const Text('Create a server'),
+        title: const Text('Create server'),
         content: TextField(
           controller: controller,
           autofocus: true,
@@ -100,22 +118,22 @@ class _HomePageState extends State<HomePage> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: () {
               final name = controller.text.trim();
+
               if (name.isNotEmpty) {
                 setState(() {
-                  servers.add(PulseServer(
-                    name,
-                    Icons.groups,
-                    ['general'],
-                  ));
+                  servers.add(
+                    PulseServer(name, Icons.groups, ['general']),
+                  );
                 });
-                Navigator.pop(context);
               }
+
+              Navigator.pop(dialogContext);
             },
             child: const Text('Create'),
           ),
@@ -124,40 +142,96 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget buildServers() {
+  void editName() {
+    final controller = TextEditingController(text: username);
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: panel,
+        title: const Text('Display name'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(hintText: 'Your name'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (controller.text.trim().isNotEmpty) {
+                setState(() => username = controller.text.trim());
+              }
+              Navigator.pop(dialogContext);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget header(String title, {Widget? action}) {
+    return Container(
+      height: 60,
+      padding: const EdgeInsets.symmetric(horizontal: 18),
+      color: panel,
+      child: Row(
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.2,
+            ),
+          ),
+          const Spacer(),
+          if (action != null) action,
+        ],
+      ),
+    );
+  }
+
+  Widget serversPage() {
     return Column(
       children: [
-        _header('SERVERS', trailing: IconButton(
-          onPressed: createServer,
-          icon: const Icon(Icons.add),
-        )),
+        header(
+          'SERVERS',
+          action: IconButton(
+            onPressed: createServer,
+            icon: const Icon(Icons.add),
+          ),
+        ),
         Expanded(
           child: ListView(
             padding: const EdgeInsets.all(14),
             children: [
-              ...servers.map((server) => Card(
-                color: panel,
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: accent.withOpacity(0.2),
-                    child: Icon(server.icon, color: accent),
+              for (final server in servers)
+                Card(
+                  color: panel,
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: accent.withOpacity(0.2),
+                      child: Icon(server.icon, color: accent),
+                    ),
+                    title: Text(
+                      server.name,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Text('${server.channels.length} channels'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ServerPage(server: server),
+                        ),
+                      );
+                    },
                   ),
-                  title: Text(
-                    server.name,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: Text('${server.channels.length} channels'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ServerPage(server: server),
-                      ),
-                    );
-                  },
                 ),
-              )),
               const SizedBox(height: 12),
               OutlinedButton.icon(
                 onPressed: createServer,
@@ -171,43 +245,46 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget buildChats() {
+  Widget chatsPage() {
     return Column(
       children: [
-        _header('DIRECT MESSAGES'),
+        header('DIRECT MESSAGES'),
         Expanded(
           child: ListView(
-            children: friends.map((friend) => ListTile(
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 18,
-                vertical: 5,
-              ),
-              leading: _avatar(null, friend, 25),
-              title: Text(friend),
-              subtitle: const Text(
-                'Tap to open conversation',
-                style: TextStyle(color: muted),
-              ),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => DirectPage(friend: friend),
+            children: [
+              for (final friend in friends)
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 5,
                   ),
-                );
-              },
-            )).toList(),
+                  leading: pulseAvatar(null, friend, 24),
+                  title: Text(friend),
+                  subtitle: const Text(
+                    'Tap to open conversation',
+                    style: TextStyle(color: muted),
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => DirectPage(friend: friend),
+                      ),
+                    );
+                  },
+                ),
+            ],
           ),
         ),
       ],
     );
   }
 
-  Widget buildActivity() {
+  Widget activityPage() {
     return Column(
       children: [
-        _header('ACTIVITY'),
+        header('ACTIVITY'),
         const Expanded(
           child: Center(
             child: Column(
@@ -229,23 +306,23 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget buildProfile() {
+  Widget profilePage() {
     return Column(
       children: [
-        _header('YOUR PROFILE'),
+        header('YOUR PROFILE'),
         const SizedBox(height: 35),
         GestureDetector(
           onTap: changeAvatar,
           child: Stack(
             children: [
-              _avatar(avatarPath, username, 55),
-              Positioned(
+              pulseAvatar(avatarPath, username, 55),
+              const Positioned(
                 bottom: 0,
                 right: 0,
                 child: CircleAvatar(
                   radius: 16,
                   backgroundColor: accent,
-                  child: const Icon(Icons.edit, size: 16),
+                  child: Icon(Icons.edit, size: 16),
                 ),
               ),
             ],
@@ -259,11 +336,13 @@ class _HomePageState extends State<HomePage> {
             fontWeight: FontWeight.bold,
           ),
         ),
-        const Text('Tap your photo to change it',
-            style: TextStyle(color: muted)),
+        const Text(
+          'Tap your photo to change it',
+          style: TextStyle(color: muted),
+        ),
         const SizedBox(height: 28),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 22),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Card(
             color: panel,
             child: Column(
@@ -286,7 +365,6 @@ class _HomePageState extends State<HomePage> {
                 const ListTile(
                   leading: Icon(Icons.settings_outlined),
                   title: Text('Settings'),
-                  trailing: Icon(Icons.chevron_right),
                 ),
               ],
             ),
@@ -296,68 +374,13 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void editName() {
-    final controller = TextEditingController(text: username);
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: panel,
-        title: const Text('Change display name'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(hintText: 'Your name'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              if (controller.text.trim().isNotEmpty) {
-                setState(() => username = controller.text.trim());
-              }
-              Navigator.pop(context);
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _header(String title, {Widget? trailing}) {
-    return Container(
-      height: 62,
-      padding: const EdgeInsets.symmetric(horizontal: 18),
-      decoration: const BoxDecoration(
-        color: panel,
-        border: Border(bottom: BorderSide(color: Colors.white10)),
-      ),
-      child: Row(
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.3,
-            ),
-          ),
-          const Spacer(),
-          if (trailing != null) trailing,
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final pages = [
-      buildServers(),
-      buildChats(),
-      buildActivity(),
-      buildProfile(),
+      serversPage(),
+      chatsPage(),
+      activityPage(),
+      profilePage(),
     ];
 
     return Scaffold(
@@ -366,7 +389,9 @@ class _HomePageState extends State<HomePage> {
         backgroundColor: panel,
         selectedIndex: tab,
         indicatorColor: accent.withOpacity(0.25),
-        onDestinationSelected: (index) => setState(() => tab = index),
+        onDestinationSelected: (index) {
+          setState(() => tab = index);
+        },
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.grid_view),
@@ -390,24 +415,6 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-Widget _avatar(String? path, String name, double radius) {
-  return CircleAvatar(
-    radius: radius,
-    backgroundColor: accent.withOpacity(0.22),
-    backgroundImage: path != null ? FileImage(File(path)) : null,
-    child: path == null
-        ? Text(
-            name.isNotEmpty ? name[0].toUpperCase() : '?',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: radius * 0.8,
-              fontWeight: FontWeight.bold,
-            ),
-          )
-        : null,
-  );
-}
-
 class DirectPage extends StatefulWidget {
   final String friend;
 
@@ -419,7 +426,6 @@ class DirectPage extends StatefulWidget {
 
 class _DirectPageState extends State<DirectPage> {
   final controller = TextEditingController();
-
   final List<ChatMessage> messages = [];
 
   @override
@@ -455,7 +461,7 @@ class _DirectPageState extends State<DirectPage> {
         backgroundColor: panel,
         title: Row(
           children: [
-            _avatar(null, widget.friend, 18),
+            pulseAvatar(null, widget.friend, 18),
             const SizedBox(width: 10),
             Text(widget.friend),
           ],
@@ -475,7 +481,7 @@ class _DirectPageState extends State<DirectPage> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _avatar(
+                      pulseAvatar(
                         null,
                         message.mine ? 'Y' : widget.friend,
                         20,
@@ -486,16 +492,13 @@ class _DirectPageState extends State<DirectPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              message.mine ? 'You' : message.sender,
+                              message.sender,
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
                             const SizedBox(height: 4),
-                            Text(
-                              message.text,
-                              style: const TextStyle(fontSize: 15),
-                            ),
+                            Text(message.text),
                           ],
                         ),
                       ),
@@ -505,7 +508,7 @@ class _DirectPageState extends State<DirectPage> {
               },
             ),
           ),
-          _messageInput(controller, sendMessage),
+          messageInput(controller, sendMessage),
         ],
       ),
     );
@@ -529,6 +532,7 @@ class _ServerPageState extends State<ServerPage> {
   @override
   void initState() {
     super.initState();
+
     for (final channel in widget.server.channels) {
       channelMessages[channel] = [
         ChatMessage('PULSE Bot', 'Welcome to #$channel!'),
@@ -548,19 +552,18 @@ class _ServerPageState extends State<ServerPage> {
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         backgroundColor: panel,
         title: const Text('Create channel'),
         content: TextField(
           controller: nameController,
           decoration: const InputDecoration(
             hintText: 'channel-name',
-            prefixText: '# ',
           ),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           FilledButton(
@@ -579,7 +582,7 @@ class _ServerPageState extends State<ServerPage> {
                 });
               }
 
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
             },
             child: const Text('Create'),
           ),
@@ -614,78 +617,80 @@ class _ServerPageState extends State<ServerPage> {
       ),
       body: Row(
         children: [
-          Container(
+          SizedBox(
             width: 126,
-            color: panel,
-            child: Column(
-              children: [
-                const Padding(
-                  padding: EdgeInsets.all(12),
-                  child: Text(
-                    'CHANNELS',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: muted,
-                      fontWeight: FontWeight.bold,
+            child: Container(
+              color: panel,
+              child: Column(
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: Text(
+                      'CHANNELS',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: muted,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                ),
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: widget.server.channels.length,
-                    itemBuilder: (context, index) {
-                      final name = widget.server.channels[index];
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: widget.server.channels.length,
+                      itemBuilder: (context, index) {
+                        final name = widget.server.channels[index];
 
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        child: Material(
-                          color: selectedChannel == index
-                              ? accent.withOpacity(0.2)
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(8),
-                          child: InkWell(
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          child: Material(
+                            color: selectedChannel == index
+                                ? accent.withOpacity(0.2)
+                                : Colors.transparent,
                             borderRadius: BorderRadius.circular(8),
-                            onTap: () {
-                              setState(() => selectedChannel = index);
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 12,
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.tag,
-                                    size: 15,
-                                    color: muted,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Expanded(
-                                    child: Text(
-                                      name,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(fontSize: 12),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(8),
+                              onTap: () {
+                                setState(() => selectedChannel = index);
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 12,
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.tag,
+                                      size: 15,
+                                      color: muted,
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        name,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
-                ),
-                IconButton(
-                  onPressed: addChannel,
-                  icon: const Icon(Icons.add_circle_outline),
-                  tooltip: 'Add channel',
-                ),
-              ],
+                  IconButton(
+                    onPressed: addChannel,
+                    icon: const Icon(Icons.add_circle_outline),
+                    tooltip: 'Add channel',
+                  ),
+                ],
+              ),
             ),
           ),
           Expanded(
@@ -697,5 +702,4 @@ class _ServerPageState extends State<ServerPage> {
                   alignment: Alignment.centerLeft,
                   decoration: const BoxDecoration(
                     border: Border(
-                      bottom: BorderSide(color: Colors.white10),
-         
+    
