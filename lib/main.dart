@@ -3,9 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
-void main() {
-  runApp(const PulseApp());
-}
+void main() => runApp(const PulseApp());
 
 const bg = Color(0xFF101218);
 const panel = Color(0xFF191D27);
@@ -18,8 +16,8 @@ class PulseApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      debugShowCheckedModeBanner: false,
       title: 'PULSE',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
         scaffoldBackgroundColor: bg,
@@ -34,38 +32,19 @@ class PulseApp extends StatelessWidget {
   }
 }
 
-class ChatMessage {
+class PulseMessage {
   final String sender;
   final String text;
   final bool mine;
 
-  ChatMessage(this.sender, this.text, {this.mine = false});
+  PulseMessage(this.sender, this.text, {this.mine = false});
 }
 
 class PulseServer {
   final String name;
-  final IconData icon;
   final List<String> channels;
 
-  PulseServer(this.name, this.icon, this.channels);
-}
-
-Widget pulseAvatar(String? path, String name, double radius) {
-  return CircleAvatar(
-    radius: radius,
-    backgroundColor: accent.withOpacity(0.25),
-    backgroundImage: path != null ? FileImage(File(path)) : null,
-    child: path == null
-        ? Text(
-            name.isNotEmpty ? name[0].toUpperCase() : '?',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: radius * 0.8,
-            ),
-          )
-        : null,
-  );
+  PulseServer(this.name, this.channels);
 }
 
 class HomePage extends StatefulWidget {
@@ -81,13 +60,12 @@ class _HomePageState extends State<HomePage> {
   String? avatarPath;
 
   final picker = ImagePicker();
+  final friends = ['Alex', 'Jordan', 'Taylor', 'Morgan'];
 
   final List<PulseServer> servers = [
-    PulseServer('PULSE HQ', Icons.bolt, ['general', 'announcements']),
-    PulseServer('Gaming', Icons.sports_esports, ['chat', 'clips']),
+    PulseServer('PULSE HQ', ['general', 'announcements']),
+    PulseServer('Gaming', ['chat', 'clips']),
   ];
-
-  final List<String> friends = ['Alex', 'Jordan', 'Taylor', 'Morgan'];
 
   Future<void> changeAvatar() async {
     final image = await picker.pickImage(
@@ -95,10 +73,26 @@ class _HomePageState extends State<HomePage> {
       imageQuality: 85,
       maxWidth: 900,
     );
-
     if (image != null && mounted) {
       setState(() => avatarPath = image.path);
     }
+  }
+
+  Widget avatar(String name, {double radius = 24}) {
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: accent.withOpacity(0.25),
+      backgroundImage:
+          name == username && avatarPath != null
+              ? FileImage(File(avatarPath!))
+              : null,
+      child: name == username && avatarPath != null
+          ? null
+          : Text(
+              name.isEmpty ? '?' : name[0].toUpperCase(),
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+    );
   }
 
   void createServer() {
@@ -112,9 +106,7 @@ class _HomePageState extends State<HomePage> {
         content: TextField(
           controller: controller,
           autofocus: true,
-          decoration: const InputDecoration(
-            hintText: 'Server name',
-          ),
+          decoration: const InputDecoration(hintText: 'Server name'),
         ),
         actions: [
           TextButton(
@@ -124,15 +116,11 @@ class _HomePageState extends State<HomePage> {
           FilledButton(
             onPressed: () {
               final name = controller.text.trim();
-
               if (name.isNotEmpty) {
                 setState(() {
-                  servers.add(
-                    PulseServer(name, Icons.groups, ['general']),
-                  );
+                  servers.add(PulseServer(name, ['general']));
                 });
               }
-
               Navigator.pop(dialogContext);
             },
             child: const Text('Create'),
@@ -149,10 +137,10 @@ class _HomePageState extends State<HomePage> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: panel,
-        title: const Text('Display name'),
+        title: const Text('Edit profile'),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(hintText: 'Your name'),
+          decoration: const InputDecoration(hintText: 'Display name'),
         ),
         actions: [
           TextButton(
@@ -173,7 +161,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget header(String title, {Widget? action}) {
+  Widget pageHeader(String title, {Widget? action}) {
     return Container(
       height: 60,
       padding: const EdgeInsets.symmetric(horizontal: 18),
@@ -197,7 +185,7 @@ class _HomePageState extends State<HomePage> {
   Widget serversPage() {
     return Column(
       children: [
-        header(
+        pageHeader(
           'SERVERS',
           action: IconButton(
             onPressed: createServer,
@@ -212,9 +200,9 @@ class _HomePageState extends State<HomePage> {
                 Card(
                   color: panel,
                   child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: accent.withOpacity(0.2),
-                      child: Icon(server.icon, color: accent),
+                    leading: const CircleAvatar(
+                      backgroundColor: Color(0x338B5CF6),
+                      child: Icon(Icons.groups, color: accent),
                     ),
                     title: Text(
                       server.name,
@@ -248,22 +236,18 @@ class _HomePageState extends State<HomePage> {
   Widget chatsPage() {
     return Column(
       children: [
-        header('DIRECT MESSAGES'),
+        pageHeader('DIRECT MESSAGES'),
         Expanded(
           child: ListView(
             children: [
               for (final friend in friends)
                 ListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 5,
+                  leading: CircleAvatar(
+                    backgroundColor: accent.withOpacity(0.2),
+                    child: Text(friend[0]),
                   ),
-                  leading: pulseAvatar(null, friend, 24),
                   title: Text(friend),
-                  subtitle: const Text(
-                    'Tap to open conversation',
-                    style: TextStyle(color: muted),
-                  ),
+                  subtitle: const Text('Open conversation'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {
                     Navigator.push(
@@ -284,7 +268,7 @@ class _HomePageState extends State<HomePage> {
   Widget activityPage() {
     return Column(
       children: [
-        header('ACTIVITY'),
+        pageHeader('ACTIVITY'),
         const Expanded(
           child: Center(
             child: Column(
@@ -309,13 +293,13 @@ class _HomePageState extends State<HomePage> {
   Widget profilePage() {
     return Column(
       children: [
-        header('YOUR PROFILE'),
+        pageHeader('YOUR PROFILE'),
         const SizedBox(height: 35),
         GestureDetector(
           onTap: changeAvatar,
           child: Stack(
             children: [
-              pulseAvatar(avatarPath, username, 55),
+              avatar(username, radius: 55),
               const Positioned(
                 bottom: 0,
                 right: 0,
@@ -337,7 +321,7 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
         const Text(
-          'Tap your photo to change it',
+          'Your PULSE profile',
           style: TextStyle(color: muted),
         ),
         const SizedBox(height: 28),
@@ -426,15 +410,15 @@ class DirectPage extends StatefulWidget {
 
 class _DirectPageState extends State<DirectPage> {
   final controller = TextEditingController();
-  final List<ChatMessage> messages = [];
+  final messages = <PulseMessage>[];
 
   @override
   void initState() {
     super.initState();
     messages.addAll([
-      ChatMessage(widget.friend, 'Hey! Welcome to PULSE.'),
-      ChatMessage('You', 'Thanks! This looks awesome.', mine: true),
-      ChatMessage(widget.friend, 'Ready to chat?'),
+      PulseMessage(widget.friend, 'Hey! Welcome to PULSE.'),
+      PulseMessage('You', 'Thanks! This looks awesome.', mine: true),
+      PulseMessage(widget.friend, 'Ready to chat?'),
     ]);
   }
 
@@ -449,7 +433,7 @@ class _DirectPageState extends State<DirectPage> {
     if (text.isEmpty) return;
 
     setState(() {
-      messages.add(ChatMessage('You', text, mine: true));
+      messages.add(PulseMessage('You', text, mine: true));
       controller.clear();
     });
   }
@@ -459,13 +443,7 @@ class _DirectPageState extends State<DirectPage> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: panel,
-        title: Row(
-          children: [
-            pulseAvatar(null, widget.friend, 18),
-            const SizedBox(width: 10),
-            Text(widget.friend),
-          ],
-        ),
+        title: Text(widget.friend),
       ),
       body: Column(
         children: [
@@ -475,34 +453,32 @@ class _DirectPageState extends State<DirectPage> {
               itemCount: messages.length,
               itemBuilder: (context, index) {
                 final message = messages[index];
-
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 18),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      pulseAvatar(
-                        null,
-                        message.mine ? 'Y' : widget.friend,
-                        20,
-                      ),
-                      const SizedBox(width: 11),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              message.sender,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(message.text),
-                          ],
+                return Align(
+                  alignment: message.mine
+                      ? Alignment.centerRight
+                      : Alignment.centerLeft,
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(12),
+                    constraints: const BoxConstraints(maxWidth: 280),
+                    decoration: BoxDecoration(
+                      color: message.mine ? accent : panel,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          message.sender,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 4),
+                        Text(message.text),
+                      ],
+                    ),
                   ),
                 );
               },
@@ -527,16 +503,15 @@ class ServerPage extends StatefulWidget {
 class _ServerPageState extends State<ServerPage> {
   int selectedChannel = 0;
   final controller = TextEditingController();
-  final Map<String, List<ChatMessage>> channelMessages = {};
+  final Map<String, List<PulseMessage>> channelMessages = {};
 
   @override
   void initState() {
     super.initState();
-
     for (final channel in widget.server.channels) {
       channelMessages[channel] = [
-        ChatMessage('PULSE Bot', 'Welcome to #$channel!'),
-        ChatMessage('Alex', 'Hey everyone!'),
+        PulseMessage('PULSE Bot', 'Welcome to #$channel!'),
+        PulseMessage('Alex', 'Hey everyone!'),
       ];
     }
   }
@@ -557,9 +532,7 @@ class _ServerPageState extends State<ServerPage> {
         title: const Text('Create channel'),
         content: TextField(
           controller: nameController,
-          decoration: const InputDecoration(
-            hintText: 'channel-name',
-          ),
+          decoration: const InputDecoration(hintText: 'channel-name'),
         ),
         actions: [
           TextButton(
@@ -581,7 +554,6 @@ class _ServerPageState extends State<ServerPage> {
                   selectedChannel = widget.server.channels.length - 1;
                 });
               }
-
               Navigator.pop(dialogContext);
             },
             child: const Text('Create'),
@@ -599,7 +571,7 @@ class _ServerPageState extends State<ServerPage> {
 
     setState(() {
       channelMessages[channel]!.add(
-        ChatMessage('You', text, mine: true),
+        PulseMessage('You', text, mine: true),
       );
       controller.clear();
     });
@@ -614,11 +586,18 @@ class _ServerPageState extends State<ServerPage> {
       appBar: AppBar(
         backgroundColor: panel,
         title: Text(widget.server.name),
+        actions: [
+          IconButton(
+            onPressed: addChannel,
+            icon: const Icon(Icons.add),
+            tooltip: 'Add channel',
+          ),
+        ],
       ),
       body: Row(
         children: [
           SizedBox(
-            width: 126,
+            width: 125,
             child: Container(
               color: panel,
               child: Column(
@@ -639,47 +618,19 @@ class _ServerPageState extends State<ServerPage> {
                       itemCount: widget.server.channels.length,
                       itemBuilder: (context, index) {
                         final name = widget.server.channels[index];
-
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
+                        return ListTile(
+                          dense: true,
+                          selected: selectedChannel == index,
+                          selectedTileColor: accent.withOpacity(0.2),
+                          leading: const Icon(Icons.tag, size: 16),
+                          title: Text(
+                            name,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 12),
                           ),
-                          child: Material(
-                            color: selectedChannel == index
-                                ? accent.withOpacity(0.2)
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(8),
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(8),
-                              onTap: () {
-                                setState(() => selectedChannel = index);
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 12,
-                                ),
-                                child: Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.tag,
-                                      size: 15,
-                                      color: muted,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Expanded(
-                                      child: Text(
-                                        name,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(fontSize: 12),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
+                          onTap: () {
+                            setState(() => selectedChannel = index);
+                          },
                         );
                       },
                     ),
@@ -687,7 +638,6 @@ class _ServerPageState extends State<ServerPage> {
                   IconButton(
                     onPressed: addChannel,
                     icon: const Icon(Icons.add_circle_outline),
-                    tooltip: 'Add channel',
                   ),
                 ],
               ),
@@ -697,9 +647,42 @@ class _ServerPageState extends State<ServerPage> {
             child: Column(
               children: [
                 Container(
-                  height: 52,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  height: 48,
                   alignment: Alignment.centerLeft,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
                   decoration: const BoxDecoration(
                     border: Border(
-    
+                      bottom: BorderSide(color: Colors.white10),
+                    ),
+                  ),
+                  child: Text(
+                    '# $channel',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(12),
+                    itemCount: messages.length,
+                    itemBuilder: (context, index) {
+                      final message = messages[index];
+                      return Align(
+                        alignment: message.mine
+                            ? Alignment.centerRight
+                            : Alignment.centerLeft,
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.all(12),
+                          constraints: const BoxConstraints(maxWidth: 260),
+                          decoration: BoxDecoration(
+                            color: message.mine ? accent : panel,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                message.sender,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+         
