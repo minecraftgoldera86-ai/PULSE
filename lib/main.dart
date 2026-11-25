@@ -1,13 +1,16 @@
 
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 void main() {
   runApp(const PulseApp());
 }
 
-const bg = Color(0xFF101116);
-const panel = Color(0xFF191B24);
-const accent = Color(0xFF8B5CF6);
+const Color bg = Color(0xFF111318);
+const Color panel = Color(0xFF191C24);
+const Color accent = Color(0xFF8B5CF6);
+const Color muted = Color(0xFF9298A8);
 
 class PulseApp extends StatelessWidget {
   const PulseApp({super.key});
@@ -17,16 +20,34 @@ class PulseApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'PULSE',
-      theme: ThemeData.dark().copyWith(
+      theme: ThemeData(
+        brightness: Brightness.dark,
         scaffoldBackgroundColor: bg,
         colorScheme: ColorScheme.fromSeed(
           seedColor: accent,
           brightness: Brightness.dark,
         ),
+        useMaterial3: true,
       ),
       home: const HomePage(),
     );
   }
+}
+
+class ChatMessage {
+  final String sender;
+  final String text;
+  final bool mine;
+
+  ChatMessage(this.sender, this.text, {this.mine = false});
+}
+
+class PulseServer {
+  final String name;
+  final IconData icon;
+  final List<String> channels;
+
+  PulseServer(this.name, this.icon, this.channels);
 }
 
 class HomePage extends StatefulWidget {
@@ -38,19 +59,41 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int tab = 0;
-  final servers = ['PULSE HQ', 'Gaming Zone', 'Friends'];
-  final chats = ['Alex', 'Jordan', 'Taylor'];
-  final messages = <String>[];
+  String username = 'PULSE User';
+  String? avatarPath;
+
+  final picker = ImagePicker();
+
+  final List<PulseServer> servers = [
+    PulseServer('PULSE HQ', Icons.bolt, ['general', 'announcements']),
+    PulseServer('Gaming', Icons.sports_esports, ['chat', 'clips']),
+  ];
+
+  final List<String> friends = ['Alex', 'Jordan', 'Taylor', 'Morgan'];
+
+  Future<void> changeAvatar() async {
+    final image = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+      maxWidth: 900,
+    );
+
+    if (image != null && mounted) {
+      setState(() => avatarPath = image.path);
+    }
+  }
 
   void createServer() {
     final controller = TextEditingController();
+
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (context) => AlertDialog(
         backgroundColor: panel,
         title: const Text('Create a server'),
         content: TextField(
           controller: controller,
+          autofocus: true,
           decoration: const InputDecoration(
             hintText: 'Server name',
           ),
@@ -62,10 +105,17 @@ class _HomePageState extends State<HomePage> {
           ),
           FilledButton(
             onPressed: () {
-              if (controller.text.trim().isNotEmpty) {
-                setState(() => servers.add(controller.text.trim()));
+              final name = controller.text.trim();
+              if (name.isNotEmpty) {
+                setState(() {
+                  servers.add(PulseServer(
+                    name,
+                    Icons.groups,
+                    ['general'],
+                  ));
+                });
+                Navigator.pop(context);
               }
-              Navigator.pop(context);
             },
             child: const Text('Create'),
           ),
@@ -74,14 +124,190 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void editProfile() {
-    final controller = TextEditingController(text: 'PULSE User');
+  Widget buildServers() {
+    return Column(
+      children: [
+        _header('SERVERS', trailing: IconButton(
+          onPressed: createServer,
+          icon: const Icon(Icons.add),
+        )),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.all(14),
+            children: [
+              ...servers.map((server) => Card(
+                color: panel,
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: accent.withOpacity(0.2),
+                    child: Icon(server.icon, color: accent),
+                  ),
+                  title: Text(
+                    server.name,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text('${server.channels.length} channels'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ServerPage(server: server),
+                      ),
+                    );
+                  },
+                ),
+              )),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: createServer,
+                icon: const Icon(Icons.add),
+                label: const Text('Create a server'),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget buildChats() {
+    return Column(
+      children: [
+        _header('DIRECT MESSAGES'),
+        Expanded(
+          child: ListView(
+            children: friends.map((friend) => ListTile(
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 18,
+                vertical: 5,
+              ),
+              leading: _avatar(null, friend, 25),
+              title: Text(friend),
+              subtitle: const Text(
+                'Tap to open conversation',
+                style: TextStyle(color: muted),
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => DirectPage(friend: friend),
+                  ),
+                );
+              },
+            )).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget buildActivity() {
+    return Column(
+      children: [
+        _header('ACTIVITY'),
+        const Expanded(
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.notifications_none, size: 55, color: muted),
+                SizedBox(height: 12),
+                Text('You are all caught up!'),
+                SizedBox(height: 5),
+                Text(
+                  'New activity will appear here.',
+                  style: TextStyle(color: muted),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget buildProfile() {
+    return Column(
+      children: [
+        _header('YOUR PROFILE'),
+        const SizedBox(height: 35),
+        GestureDetector(
+          onTap: changeAvatar,
+          child: Stack(
+            children: [
+              _avatar(avatarPath, username, 55),
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: CircleAvatar(
+                  radius: 16,
+                  backgroundColor: accent,
+                  child: const Icon(Icons.edit, size: 16),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 15),
+        Text(
+          username,
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const Text('Tap your photo to change it',
+            style: TextStyle(color: muted)),
+        const SizedBox(height: 28),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 22),
+          child: Card(
+            color: panel,
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.person_outline),
+                  title: const Text('Display name'),
+                  subtitle: Text(username),
+                  trailing: const Icon(Icons.edit),
+                  onTap: editName,
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.photo_outlined),
+                  title: const Text('Change profile photo'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: changeAvatar,
+                ),
+                const Divider(height: 1),
+                const ListTile(
+                  leading: Icon(Icons.settings_outlined),
+                  title: Text('Settings'),
+                  trailing: Icon(Icons.chevron_right),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void editName() {
+    final controller = TextEditingController(text: username);
+
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (context) => AlertDialog(
         backgroundColor: panel,
-        title: const Text('Edit display name'),
-        content: TextField(controller: controller),
+        title: const Text('Change display name'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(hintText: 'Your name'),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -89,7 +315,9 @@ class _HomePageState extends State<HomePage> {
           ),
           FilledButton(
             onPressed: () {
-              setState(() => displayName = controller.text);
+              if (controller.text.trim().isNotEmpty) {
+                setState(() => username = controller.text.trim());
+              }
               Navigator.pop(context);
             },
             child: const Text('Save'),
@@ -99,42 +327,46 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  String displayName = 'PULSE User';
+  Widget _header(String title, {Widget? trailing}) {
+    return Container(
+      height: 62,
+      padding: const EdgeInsets.symmetric(horizontal: 18),
+      decoration: const BoxDecoration(
+        color: panel,
+        border: Border(bottom: BorderSide(color: Colors.white10)),
+      ),
+      child: Row(
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.3,
+            ),
+          ),
+          const Spacer(),
+          if (trailing != null) trailing,
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final pages = [
-      serversPage(),
-      chatsPage(),
-      activityPage(),
-      profilePage(),
+      buildServers(),
+      buildChats(),
+      buildActivity(),
+      buildProfile(),
     ];
 
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: bg,
-        title: const Row(
-          children: [
-            Icon(Icons.bolt, color: accent, size: 28),
-            SizedBox(width: 8),
-            Text(
-              'PULSE',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.search),
-          ),
-        ],
-      ),
-      body: pages[tab],
+      body: SafeArea(child: pages[tab]),
       bottomNavigationBar: NavigationBar(
         backgroundColor: panel,
         selectedIndex: tab,
-        onDestinationSelected: (v) => setState(() => tab = v),
+        indicatorColor: accent.withOpacity(0.25),
+        onDestinationSelected: (index) => setState(() => tab = index),
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.grid_view),
@@ -156,159 +388,314 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
+}
 
-  Widget serversPage() {
-    return ListView(
-      padding: const EdgeInsets.all(18),
-      children: [
-        const Text(
-          'YOUR COMMUNITIES',
-          style: TextStyle(
-            color: Colors.white54,
-            fontSize: 12,
-            letterSpacing: 2,
-          ),
-        ),
-        const SizedBox(height: 14),
-        ...servers.map((s) => Card(
-              color: panel,
-              child: ListTile(
-                leading: const CircleAvatar(
-                  backgroundColor: accent,
-                  child: Icon(Icons.bolt, color: Colors.white),
-                ),
-                title: Text(s),
-                subtitle: const Text('Community server'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => showDialog(
-                  context: context,
-                  builder: (_) => AlertDialog(
-                    backgroundColor: panel,
-                    title: Text(s),
-                    content: const Text(
-                      '# general\n# announcements\n\nChannels coming soon.',
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('Close'),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            )),
-        const SizedBox(height: 12),
-        FilledButton.icon(
-          onPressed: createServer,
-          icon: const Icon(Icons.add),
-          label: const Text('Create a server'),
-        ),
-      ],
-    );
-  }
-
-  Widget chatsPage() {
-    return ListView(
-      padding: const EdgeInsets.all(18),
-      children: [
-        const Text(
-          'DIRECT MESSAGES',
-          style: TextStyle(color: Colors.white54, letterSpacing: 2),
-        ),
-        const SizedBox(height: 12),
-        ...chats.map((name) => Card(
-              color: panel,
-              child: ListTile(
-                leading: const CircleAvatar(child: Icon(Icons.person)),
-                title: Text(name),
-                subtitle: const Text('Tap to open conversation'),
-                onTap: () => openChat(name),
-              ),
-            )),
-      ],
-    );
-  }
-
-  void openChat(String name) {
-    final controller = TextEditingController();
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: panel,
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(
-          left: 18,
-          right: 18,
-          top: 22,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(name, style: const TextStyle(fontSize: 20)),
-            const SizedBox(height: 16),
-            ...messages.map((m) => ListTile(
-                  title: Text(m, textAlign: TextAlign.right),
-                )),
-            TextField(
-              controller: controller,
-              decoration: InputDecoration(
-                hintText: 'Write a message...',
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.send),
-                  onPressed: () {
-                    if (controller.text.trim().isNotEmpty) {
-                      setState(() => messages.add(controller.text.trim()));
-                      controller.clear();
-                    }
-                  },
-                ),
-              ),
+Widget _avatar(String? path, String name, double radius) {
+  return CircleAvatar(
+    radius: radius,
+    backgroundColor: accent.withOpacity(0.22),
+    backgroundImage: path != null ? FileImage(File(path)) : null,
+    child: path == null
+        ? Text(
+            name.isNotEmpty ? name[0].toUpperCase() : '?',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: radius * 0.8,
+              fontWeight: FontWeight.bold,
             ),
+          )
+        : null,
+  );
+}
+
+class DirectPage extends StatefulWidget {
+  final String friend;
+
+  const DirectPage({super.key, required this.friend});
+
+  @override
+  State<DirectPage> createState() => _DirectPageState();
+}
+
+class _DirectPageState extends State<DirectPage> {
+  final controller = TextEditingController();
+
+  final List<ChatMessage> messages = [];
+
+  @override
+  void initState() {
+    super.initState();
+    messages.addAll([
+      ChatMessage(widget.friend, 'Hey! Welcome to PULSE.'),
+      ChatMessage('You', 'Thanks! This looks awesome.', mine: true),
+      ChatMessage(widget.friend, 'Ready to chat?'),
+    ]);
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  void sendMessage() {
+    final text = controller.text.trim();
+    if (text.isEmpty) return;
+
+    setState(() {
+      messages.add(ChatMessage('You', text, mine: true));
+      controller.clear();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: panel,
+        title: Row(
+          children: [
+            _avatar(null, widget.friend, 18),
+            const SizedBox(width: 10),
+            Text(widget.friend),
           ],
         ),
       ),
-    );
-  }
-
-  Widget activityPage() {
-    return const Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      body: Column(
         children: [
-          Icon(Icons.notifications_none, size: 55, color: accent),
-          SizedBox(height: 12),
-          Text('You are all caught up!'),
-          Text('Your activity will appear here.',
-              style: TextStyle(color: Colors.white54)),
-        ],
-      ),
-    );
-  }
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: messages.length,
+              itemBuilder: (context, index) {
+                final message = messages[index];
 
-  Widget profilePage() {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const CircleAvatar(
-            radius: 42,
-            backgroundColor: accent,
-            child: Icon(Icons.person, size: 45),
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 18),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _avatar(
+                        null,
+                        message.mine ? 'Y' : widget.friend,
+                        20,
+                      ),
+                      const SizedBox(width: 11),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              message.mine ? 'You' : message.sender,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              message.text,
+                              style: const TextStyle(fontSize: 15),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
           ),
-          const SizedBox(height: 16),
-          Text(displayName, style: const TextStyle(fontSize: 22)),
-          const Text('Welcome to PULSE',
-              style: TextStyle(color: Colors.white54)),
-          const SizedBox(height: 18),
-          OutlinedButton.icon(
-            onPressed: editProfile,
-            icon: const Icon(Icons.edit),
-            label: const Text('Edit profile'),
-          ),
+          _messageInput(controller, sendMessage),
         ],
       ),
     );
   }
 }
+
+class ServerPage extends StatefulWidget {
+  final PulseServer server;
+
+  const ServerPage({super.key, required this.server});
+
+  @override
+  State<ServerPage> createState() => _ServerPageState();
+}
+
+class _ServerPageState extends State<ServerPage> {
+  int selectedChannel = 0;
+  final controller = TextEditingController();
+  final Map<String, List<ChatMessage>> channelMessages = {};
+
+  @override
+  void initState() {
+    super.initState();
+    for (final channel in widget.server.channels) {
+      channelMessages[channel] = [
+        ChatMessage('PULSE Bot', 'Welcome to #$channel!'),
+        ChatMessage('Alex', 'Hey everyone!'),
+      ];
+    }
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  void addChannel() {
+    final nameController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: panel,
+        title: const Text('Create channel'),
+        content: TextField(
+          controller: nameController,
+          decoration: const InputDecoration(
+            hintText: 'channel-name',
+            prefixText: '# ',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final name = nameController.text
+                  .trim()
+                  .toLowerCase()
+                  .replaceAll(' ', '-');
+
+              if (name.isNotEmpty &&
+                  !widget.server.channels.contains(name)) {
+                setState(() {
+                  widget.server.channels.add(name);
+                  channelMessages[name] = [];
+                  selectedChannel = widget.server.channels.length - 1;
+                });
+              }
+
+              Navigator.pop(context);
+            },
+            child: const Text('Create'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void sendMessage() {
+    final text = controller.text.trim();
+    if (text.isEmpty) return;
+
+    final channel = widget.server.channels[selectedChannel];
+
+    setState(() {
+      channelMessages[channel]!.add(
+        ChatMessage('You', text, mine: true),
+      );
+      controller.clear();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final channel = widget.server.channels[selectedChannel];
+    final messages = channelMessages[channel] ?? [];
+
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: panel,
+        title: Text(widget.server.name),
+      ),
+      body: Row(
+        children: [
+          Container(
+            width: 126,
+            color: panel,
+            child: Column(
+              children: [
+                const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: Text(
+                    'CHANNELS',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: muted,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: widget.server.channels.length,
+                    itemBuilder: (context, index) {
+                      final name = widget.server.channels[index];
+
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        child: Material(
+                          color: selectedChannel == index
+                              ? accent.withOpacity(0.2)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(8),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(8),
+                            onTap: () {
+                              setState(() => selectedChannel = index);
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 12,
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.tag,
+                                    size: 15,
+                                    color: muted,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      name,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                IconButton(
+                  onPressed: addChannel,
+                  icon: const Icon(Icons.add_circle_outline),
+                  tooltip: 'Add channel',
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Column(
+              children: [
+                Container(
+                  height: 52,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  alignment: Alignment.centerLeft,
+                  decoration: const BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(color: Colors.white10),
+         
